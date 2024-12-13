@@ -1,0 +1,45 @@
+#!/usr/bin/sh
+systemctl --user import-environment WAYLAND_DISPLAY
+systemctl --user start xdg-desktop-portal-wlr.service
+swaybg -i $(find $HOME/.local/share/wallpapers/ -type f | shuf -n 1) -m fill &
+music_logos="󰒫"
+music_logos="󰒬"
+
+youtube="^lm(sh .local/bin/menutube.sh -a) ^lm()"
+files="^lm(foot yazi) ^lm()"
+browser="^lm(firefox)^rm(chromium) ^lm()^rm()"
+audio_cfgs="^lm(pavucontrol-qt) ^lm()"
+shortcuts="^bg(aaffaa)^fg(222222) $browser $files $youtube $audio_cfgs ^fg()^bg()"
+powerbutton="^lm(shutdown now)^rm(pkill -fe dwl)^mm(shutdown -r now)󰐥^lm()^rm()^mm()"
+
+prev="^lm(mpv-ipc-client.sh playlist-prev) ^lm()"
+next="^lm(mpv-ipc-client.sh playlist-next) ^lm()"
+
+while true; do
+    POWER_LEVEL="$(awk -F '=' 'NR == 13 {print $2}' /sys/class/power_supply/BAT0/uevent)"
+    POWER_STATUS="$(awk -F '=' 'NR == 3 {print $2}' /sys/class/power_supply/AC0/uevent)"
+    if [ ${POWER_STATUS} = "1" ]; then
+        POWER_LOGO="󰚥 ${POWER_LEVEL}%"
+    else
+        POWER_LOGO=" ${POWER_LEVEL}%"
+    fi
+    is_paused=$(mpv-ipc-client.sh get_property pause | jq .data)
+    playback_title=$(mpv-ipc-client.sh get_property media-title | jq -r .data)
+    jq_query='if .data != null then "\(.data / 60 | floor) \(.data % 60)" else "" end'
+    playback_time=$(mpv-ipc-client.sh get_property playback-time | jq -r "$jq_query" | awk '{printf "%02d:%02d", $1, $2}')
+    test "$playback_title" = "null" && playback_title=""
+
+
+    if ( $is_paused ) ; then
+        pause_logo=""
+    else
+        pause_logo=""
+    fi
+    pause="^lm(mpv-ipc-client.sh cycle pause)$pause_logo^lm()"
+    PLAYBACK="$playback_title $prev $pause $next $playback_time"
+    RAM=`free -hg | awk 'NR == 2 {print $3 "/" $2}'`
+    dwlb -status all "${PLAYBACK}  $shortcuts ^lm() ^lm(foot htop) ${RAM}^lm() ^lm(foot calcurse) $(date +'%a %b %d 󱑀 %l:%M %p')^lm() ${POWER_LOGO} $powerbutton "
+
+    sleep 0.2s
+done &
+dwlb -hide-vacant-tags
